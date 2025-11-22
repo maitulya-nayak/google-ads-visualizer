@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   Upload,
   Type,
@@ -11,12 +11,22 @@ import {
   Sun,
   ZoomIn,
   Monitor,
+  Download,
+  Save,
+  List,
+  Eye,
 } from "lucide-react";
+import { toPng } from "html-to-image";
 
-// --- Types ---
+// ---------- Types ----------
+
+interface AdSize {
+  w: number;
+  h: number;
+}
 
 interface AdProps {
-  size: { w: number; h: number };
+  size: AdSize;
   image: string | null;
   headline: string;
   subhead: string;
@@ -24,9 +34,24 @@ interface AdProps {
   primaryColor: string;
   darkMode: boolean;
   imageScale: number;
+  imageOffset: { x: number; y: number };
+  enableDrag?: boolean;
+  onImageOffsetChange?: (offset: { x: number; y: number }) => void;
 }
 
-// --- Ad Canvas Component ---
+interface Preset {
+  id: string;
+  name: string;
+  headline: string;
+  subhead: string;
+  cta: string;
+  primaryColor: string;
+  darkMode: boolean;
+  imageScale: number;
+  imageOffset: { x: number; y: number };
+}
+
+// ---------- Ad Canvas ----------
 
 const AdCanvas: React.FC<AdProps> = ({
   size,
@@ -37,6 +62,9 @@ const AdCanvas: React.FC<AdProps> = ({
   primaryColor,
   darkMode,
   imageScale,
+  imageOffset,
+  enableDrag = false,
+  onImageOffsetChange,
 }) => {
   const isLeaderboard = size.w > size.h * 1.5;
   const isSkyscraper = size.h > size.w * 1.5;
@@ -51,13 +79,39 @@ const AdCanvas: React.FC<AdProps> = ({
     ? "bg-slate-800 border-slate-600 text-slate-500"
     : "bg-slate-50 border-slate-300 text-slate-300";
 
-  const containerClass =
-    "border shadow-sm relative overflow-hidden flex cursor-default select-none transition-colors duration-200";
+  const [dragging, setDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const offsetStartRef = useRef<{ x: number; y: number } | null>(null);
+
+  const handleMouseDown: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    if (!enableDrag || !onImageOffsetChange || !image) return;
+    e.preventDefault();
+    setDragging(true);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    offsetStartRef.current = { ...imageOffset };
+  };
+
+  const handleMouseMove: React.MouseEventHandler<HTMLDivElement> = (e) => {
+    if (!enableDrag || !dragging || !onImageOffsetChange) return;
+    if (!dragStartRef.current || !offsetStartRef.current) return;
+
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    onImageOffsetChange({
+      x: offsetStartRef.current.x + dx,
+      y: offsetStartRef.current.y + dy,
+    });
+  };
+
+  const stopDragging = () => setDragging(false);
 
   return (
     <div
-      className={`${containerBg} ${containerClass}`}
+      className={`${containerBg} border shadow-sm relative overflow-hidden flex cursor-default select-none transition-colors duration-200`}
       style={{ width: size.w, height: size.h }}
+      onMouseMove={handleMouseMove}
+      onMouseUp={stopDragging}
+      onMouseLeave={stopDragging}
     >
       <div
         className={`relative z-10 w-full h-full flex p-3 ${
@@ -80,13 +134,17 @@ const AdCanvas: React.FC<AdProps> = ({
                 : "w-full h-1/2 mt-4"
             }
           `}
+          onMouseDown={handleMouseDown}
         >
           {image ? (
             <img
               src={image}
               alt="Creative"
               className="max-h-full max-w-full object-contain transition-transform duration-100"
-              style={{ transform: `scale(${imageScale})` }}
+              style={{
+                transform: `translate(${imageOffset.x}px, ${imageOffset.y}px) scale(${imageScale})`,
+                cursor: enableDrag ? "grab" : "default",
+              }}
             />
           ) : (
             <div
@@ -159,7 +217,7 @@ const AdCanvas: React.FC<AdProps> = ({
   );
 };
 
-// --- Character Counter ---
+// ---------- Character Counter ----------
 
 const CharCounter: React.FC<{ current: number; max: number }> = ({
   current,
@@ -177,30 +235,186 @@ const CharCounter: React.FC<{ current: number; max: number }> = ({
   );
 };
 
-// --- Main App ---
+// ---------- Ad Preview Card (with Download) ----------
+
+interface AdPreviewCardProps {
+  label: string;
+  size: AdSize;
+  settings: {
+    image: string | null;
+    headline: string;
+    subhead: string;
+    cta: string;
+    primaryColor: string;
+    darkMode: boolean;
+    imageScale: number;
+    imageOffset: { x: number; y: number };
+  };
+  highlightDrag?: boolean;
+  onImageOffsetChange?: (offset: { x: number; y: number }) => void;
+}
+
+const AdPreviewCard: React.FC<AdPreviewCardProps> = ({
+  label,
+  size,
+  settings,
+  highlightDrag = false,
+  onImageOffsetChange,
+}) => {
+  const wrapperRef = useRef<HTMLDivElement | null>(null);
+
+  const handleDownload = async () => {
+    if (!wrapperRef.current) return;
+    try {
+      const dataUrl = await toPng(wrapperRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+      });
+      const link = document.createElement("a");
+      const safeLabel = label.toLowerCase().replace(/\s+/g, "-");
+      link.download = `${safeLabel}-${size.w}x${size.h}.png`;
+      link.href = dataUrl;
+      link.click();
+    } catch (err) {
+      console.error("Download failed", err);
+      alert("Could not export PNG. Check console for details.");
+    }
+  };
+
+  return (
+    <div className="bg-slate-100 p-4 rounded-lg border border-slate-200 flex flex-col gap-2">
+      <div className="flex items-center justify-between mb-1">
+        <div className="text-[10px] text-slate-400 font-mono uppercase">
+          {label} ({size.w}x{size.h})
+        </div>
+        <button
+          onClick={handleDownload}
+          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] border border-slate-300 text-slate-600 hover:bg-white active:scale-95"
+        >
+          <Download size={10} /> PNG
+        </button>
+      </div>
+      <div ref={wrapperRef} className="flex justify-center">
+        <AdCanvas
+          size={size}
+          image={settings.image}
+          headline={settings.headline}
+          subhead={settings.subhead}
+          cta={settings.cta}
+          primaryColor={settings.primaryColor}
+          darkMode={settings.darkMode}
+          imageScale={settings.imageScale}
+          imageOffset={settings.imageOffset}
+          enableDrag={highlightDrag}
+          onImageOffsetChange={onImageOffsetChange}
+        />
+      </div>
+    </div>
+  );
+};
+
+// ---------- Main App ----------
 
 const App: React.FC = () => {
-  const [image, setImage] = useState<string | null>(null);
+  // Images
+  const [images, setImages] = useState<string[]>([]);
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  const [headline, setHeadline] = useState("Pure Clarity");
-  const [subhead, setSubhead] = useState("Premium 200ml Packs");
-  const [cta, setCta] = useState("Order Now");
+  // Copy (empty by default)
+  const [headline, setHeadline] = useState("");
+  const [subhead, setSubhead] = useState("");
+  const [cta, setCta] = useState("");
 
+  // Design
   const [primaryColor, setPrimaryColor] = useState("#EF4444");
   const [darkMode, setDarkMode] = useState(false);
   const [imageScale, setImageScale] = useState(1);
+  const [imageOffset, setImageOffset] = useState({ x: 0, y: 0 });
+
+  // Presets
+  const [presets, setPresets] = useState<Preset[]>(() => {
+    try {
+      const raw = localStorage.getItem("ga-visualizer-presets");
+      if (raw) return JSON.parse(raw) as Preset[];
+    } catch (e) {
+      console.warn("Could not load presets", e);
+    }
+    return [];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        "ga-visualizer-presets",
+        JSON.stringify(presets.slice(0, 10))
+      );
+    } catch (e) {
+      console.warn("Could not save presets", e);
+    }
+  }, [presets]);
+
+  const activeImage = images[activeImageIndex] ?? null;
 
   const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>,
-    setter: React.Dispatch<React.SetStateAction<string | null>>
-  ) => {
+    e: React.ChangeEvent<HTMLInputElement>
+  ): void => {
     if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
       const reader = new FileReader();
       reader.onload = (ev) => {
-        if (ev.target?.result) setter(ev.target.result as string);
+        if (ev.target?.result) {
+          const data = ev.target.result as string;
+          setImages((prev) => {
+            const next = [...prev, data];
+            setActiveImageIndex(next.length - 1);
+            return next;
+          });
+        }
       };
-      reader.readAsDataURL(e.target.files[0]);
+      reader.readAsDataURL(file);
     }
+  };
+
+  const handleSavePreset = () => {
+    const name = window.prompt("Preset name?", "Default layout");
+    if (!name) return;
+    const preset: Preset = {
+      id: Date.now().toString(),
+      name,
+      headline,
+      subhead,
+      cta,
+      primaryColor,
+      darkMode,
+      imageScale,
+      imageOffset,
+    };
+    setPresets((prev) => [preset, ...prev].slice(0, 10));
+  };
+
+  const applyPreset = (preset: Preset) => {
+    setHeadline(preset.headline);
+    setSubhead(preset.subhead);
+    setCta(preset.cta);
+    setPrimaryColor(preset.primaryColor);
+    setDarkMode(preset.darkMode);
+    setImageScale(preset.imageScale);
+    setImageOffset(preset.imageOffset);
+  };
+
+  const deletePreset = (id: string) => {
+    setPresets((prev) => prev.filter((p) => p.id !== id));
+  };
+
+  const sharedSettings = {
+    image: activeImage,
+    headline,
+    subhead,
+    cta,
+    primaryColor,
+    darkMode,
+    imageScale,
+    imageOffset,
   };
 
   return (
@@ -213,61 +427,104 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900">
-              Google Ads <span className="text-blue-600">Visualizer by Maitulya</span>
+              Google Ads <span className="text-blue-600">Visualizer By Maitulya</span>
             </h1>
             <p className="text-xs text-slate-500">
-              Internal creative validation tool
+              Internal creative QA for Display campaigns
             </p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-3 text-xs">
+          <span className="flex items-center gap-1 text-slate-500">
+            <Eye size={12} /> Preview only
+          </span>
+          <span className="flex items-center gap-1 text-slate-400">
+            <Star size={12} /> v1.1
+          </span>
         </div>
       </div>
 
       <div className="max-w-[1600px] mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Sidebar */}
         <div className="lg:col-span-3 space-y-4 h-fit lg:sticky lg:top-24">
-          {/* Assets & Validation */}
+          {/* Assets */}
           <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Upload size={14} /> Assets & Validation
+              <Upload size={14} /> Creative assets
             </h2>
 
-            {/* Image upload */}
+            {/* Upload */}
             <div className="mb-4">
               <label className="block text-xs font-semibold text-slate-600 mb-2">
-                Marketing Image
+                Upload final banner (PNG/JPG)
               </label>
               <div className="relative">
                 <input
                   type="file"
                   accept="image/*"
-                  onChange={(e) => handleImageUpload(e, setImage)}
+                  onChange={handleImageUpload}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                 />
                 <div
                   className={`border rounded-md p-3 text-center transition-colors ${
-                    image
+                    images.length
                       ? "border-green-400 bg-green-50"
                       : "border-slate-200 hover:bg-slate-50"
                   }`}
                 >
-                  {image ? (
+                  {images.length ? (
                     <span className="text-green-700 text-xs font-medium">
-                      Image uploaded ✓
+                      {images.length} creative
+                      {images.length > 1 ? "s" : ""} uploaded
                     </span>
                   ) : (
                     <span className="text-slate-400 text-xs">
-                      Upload final banner image
+                      Click to upload creative
                     </span>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Scale slider */}
+            {/* Thumbnails */}
+            {images.length > 0 && (
+              <div className="mb-4">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">
+                    Variants
+                  </span>
+                  <span className="text-[10px] text-slate-400">
+                    Click to switch
+                  </span>
+                </div>
+                <div className="flex gap-2 overflow-x-auto pb-1">
+                  {images.map((img, idx) => (
+                    <button
+                      key={idx}
+                      onClick={() => setActiveImageIndex(idx)}
+                      className={`border rounded-md p-1 shrink-0 ${
+                        activeImageIndex === idx
+                          ? "border-blue-500 ring-1 ring-blue-300"
+                          : "border-slate-200"
+                      }`}
+                    >
+                      <img
+                        src={img}
+                        alt={`variant-${idx + 1}`}
+                        className="w-12 h-12 object-contain bg-slate-50"
+                      />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Scale */}
             <div className="mb-4">
               <div className="flex justify-between mb-1">
                 <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
-                  <ZoomIn size={12} /> Image Scale
+                  <ZoomIn size={12} /> Image scale
                 </label>
                 <span className="text-[10px] text-slate-400">
                   {Math.round(imageScale * 100)}%
@@ -279,42 +536,46 @@ const App: React.FC = () => {
                 max="1.5"
                 step="0.05"
                 value={imageScale}
-                onChange={(e) => setImageScale(parseFloat(e.target.value))}
+                onChange={(e) =>
+                  setImageScale(parseFloat(e.target.value))
+                }
                 className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
             </div>
 
             {/* Halo checker */}
-            <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
-              <div className="flex items-center gap-2">
-                {darkMode ? (
-                  <Moon size={14} className="text-blue-600" />
-                ) : (
-                  <Sun size={14} className="text-slate-400" />
-                )}
-                <span className="text-xs font-semibold text-slate-600">
-                  Halo checker
-                </span>
-              </div>
-              <button
-                onClick={() => setDarkMode((prev) => !prev)}
-                className={`w-8 h-4 rounded-full transition-colors relative ${
-                  darkMode ? "bg-blue-600" : "bg-slate-300"
-                }`}
-              >
-                <div
-                  className={`w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform ${
-                    darkMode ? "translate-x-4" : ""
+            <div className="space-y-2">
+              <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
+                <div className="flex items-center gap-2">
+                  {darkMode ? (
+                    <Moon size={14} className="text-blue-600" />
+                  ) : (
+                    <Sun size={14} className="text-slate-400" />
+                  )}
+                  <span className="text-xs font-semibold text-slate-600">
+                    Halo checker
+                  </span>
+                </div>
+                <button
+                  onClick={() => setDarkMode((prev) => !prev)}
+                  className={`w-8 h-4 rounded-full transition-colors relative ${
+                    darkMode ? "bg-blue-600" : "bg-slate-300"
                   }`}
-                />
-              </button>
+                >
+                  <div
+                    className={`w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform ${
+                      darkMode ? "translate-x-4" : ""
+                    }`}
+                  />
+                </button>
+              </div>
             </div>
           </div>
 
-          {/* Copy & Compliance */}
+          {/* Copy */}
           <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Type size={14} /> Copy Compliance
+              <Type size={14} /> Copy compliance
             </h2>
             <div className="space-y-4">
               {/* Headline */}
@@ -412,9 +673,51 @@ const App: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Presets */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <List size={14} /> Layout presets
+            </h2>
+            <div className="flex gap-2 mb-3">
+              <button
+                onClick={handleSavePreset}
+                className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 rounded text-xs bg-slate-900 text-white hover:bg-slate-800 active:scale-95"
+              >
+                <Save size={12} /> Save current
+              </button>
+            </div>
+            {presets.length === 0 ? (
+              <p className="text-[11px] text-slate-400">
+                Save common layouts here (per brand / campaign).
+              </p>
+            ) : (
+              <div className="space-y-1 max-h-40 overflow-y-auto">
+                {presets.map((p) => (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between text-[11px] bg-slate-50 border border-slate-100 rounded px-2 py-1"
+                  >
+                    <button
+                      onClick={() => applyPreset(p)}
+                      className="text-left flex-1 hover:text-blue-600"
+                    >
+                      {p.name}
+                    </button>
+                    <button
+                      onClick={() => deletePreset(p.id)}
+                      className="text-slate-400 hover:text-red-500 ml-2"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* Preview grid */}
+        {/* Main preview */}
         <div className="lg:col-span-9 space-y-8">
           {/* High impact */}
           <section>
@@ -422,20 +725,13 @@ const App: React.FC = () => {
               <Star className="text-amber-500" size={16} /> Billboard (High
               impact)
             </h3>
-            <div className="grid gap-6">
-              <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex justify-center overflow-hidden">
-                <AdCanvas
-                  size={{ w: 970, h: 250 }}
-                  image={image}
-                  headline={headline}
-                  subhead={subhead}
-                  cta={cta}
-                  primaryColor={primaryColor}
-                  darkMode={darkMode}
-                  imageScale={imageScale}
-                />
-              </div>
-            </div>
+            <AdPreviewCard
+              label="Billboard"
+              size={{ w: 970, h: 250 }}
+              settings={sharedSettings}
+              highlightDrag
+              onImageOffsetChange={setImageOffset}
+            />
           </section>
 
           {/* Rectangles */}
@@ -450,24 +746,12 @@ const App: React.FC = () => {
                 { w: 336, h: 280, label: "Large rectangle" },
                 { w: 250, h: 250, label: "Square" },
               ].map((spec, i) => (
-                <div
+                <AdPreviewCard
                   key={i}
-                  className="bg-slate-100 p-6 rounded-lg border border-slate-200"
-                >
-                  <div className="text-[10px] text-slate-400 mb-2 font-mono uppercase">
-                    {spec.label} ({spec.w}x{spec.h})
-                  </div>
-                  <AdCanvas
-                    size={{ w: spec.w, h: spec.h }}
-                    image={image}
-                    headline={headline}
-                    subhead={subhead}
-                    cta={cta}
-                    primaryColor={primaryColor}
-                    darkMode={darkMode}
-                    imageScale={imageScale}
-                  />
-                </div>
+                  label={spec.label}
+                  size={{ w: spec.w, h: spec.h }}
+                  settings={sharedSettings}
+                />
               ))}
             </div>
           </section>
@@ -478,57 +762,22 @@ const App: React.FC = () => {
               <Maximize className="text-green-500" size={16} /> Leaderboards
             </h3>
             <div className="space-y-6">
-              {/* 728x90 */}
-              <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex justify-center overflow-hidden">
-                <div className="w-full flex flex-col items-center">
-                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[728px] text-left uppercase">
-                    Leaderboard (728x90)
-                  </div>
-                  <AdCanvas
-                    size={{ w: 728, h: 90 }}
-                    image={image}
-                    headline={headline}
-                    subhead={subhead}
-                    cta={cta}
-                    primaryColor={primaryColor}
-                    darkMode={darkMode}
-                    imageScale={imageScale}
-                  />
-                </div>
-              </div>
-
-              {/* mobile */}
+              <AdPreviewCard
+                label="Leaderboard"
+                size={{ w: 728, h: 90 }}
+                settings={sharedSettings}
+              />
               <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex flex-col items-center">
-                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[320px] text-left uppercase">
-                    Mobile leaderboard (320x50)
-                  </div>
-                  <AdCanvas
-                    size={{ w: 320, h: 50 }}
-                    image={image}
-                    headline={headline}
-                    subhead={subhead}
-                    cta={cta}
-                    primaryColor={primaryColor}
-                    darkMode={darkMode}
-                    imageScale={imageScale}
-                  />
-                </div>
-                <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex flex-col items-center">
-                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[320px] text-left uppercase">
-                    Large mobile (320x100)
-                  </div>
-                  <AdCanvas
-                    size={{ w: 320, h: 100 }}
-                    image={image}
-                    headline={headline}
-                    subhead={subhead}
-                    cta={cta}
-                    primaryColor={primaryColor}
-                    darkMode={darkMode}
-                    imageScale={imageScale}
-                  />
-                </div>
+                <AdPreviewCard
+                  label="Mobile leaderboard"
+                  size={{ w: 320, h: 50 }}
+                  settings={sharedSettings}
+                />
+                <AdPreviewCard
+                  label="Large mobile"
+                  size={{ w: 320, h: 100 }}
+                  settings={sharedSettings}
+                />
               </div>
             </div>
           </section>
@@ -544,24 +793,12 @@ const App: React.FC = () => {
                 { w: 160, h: 600, label: "Wide skyscraper" },
                 { w: 240, h: 400, label: "Vertical rectangle" },
               ].map((spec, i) => (
-                <div
+                <AdPreviewCard
                   key={i}
-                  className="bg-slate-100 p-6 rounded-lg border border-slate-200"
-                >
-                  <div className="text-[10px] text-slate-400 mb-2 font-mono uppercase">
-                    {spec.label} ({spec.w}x{spec.h})
-                  </div>
-                  <AdCanvas
-                    size={{ w: spec.w, h: spec.h }}
-                    image={image}
-                    headline={headline}
-                    subhead={subhead}
-                    cta={cta}
-                    primaryColor={primaryColor}
-                    darkMode={darkMode}
-                    imageScale={imageScale}
-                  />
-                </div>
+                  label={spec.label}
+                  size={{ w: spec.w, h: spec.h }}
+                  settings={sharedSettings}
+                />
               ))}
             </div>
           </section>
