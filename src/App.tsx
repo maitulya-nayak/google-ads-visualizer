@@ -1,0 +1,574 @@
+import React, { useState } from "react";
+import {
+  Upload,
+  Type,
+  Layout,
+  Maximize,
+  Box,
+  Star,
+  Image as ImageIcon,
+  Moon,
+  Sun,
+  ZoomIn,
+  Monitor,
+} from "lucide-react";
+
+// --- Types ---
+
+interface AdProps {
+  size: { w: number; h: number };
+  image: string | null;
+  headline: string;
+  subhead: string;
+  cta: string;
+  primaryColor: string;
+  darkMode: boolean;
+  imageScale: number;
+}
+
+// --- Ad Canvas Component ---
+
+const AdCanvas: React.FC<AdProps> = ({
+  size,
+  image,
+  headline,
+  subhead,
+  cta,
+  primaryColor,
+  darkMode,
+  imageScale,
+}) => {
+  const isLeaderboard = size.w > size.h * 1.5;
+  const isSkyscraper = size.h > size.w * 1.5;
+  const isMicro = size.h <= 60;
+
+  const containerBg = darkMode
+    ? "bg-slate-900 border-slate-700"
+    : "bg-white border-slate-200";
+  const textColor = darkMode ? "text-white" : "text-slate-800";
+  const subTextColor = darkMode ? "text-slate-300" : "text-slate-600";
+  const placeholderColor = darkMode
+    ? "bg-slate-800 border-slate-600 text-slate-500"
+    : "bg-slate-50 border-slate-300 text-slate-300";
+
+  const containerClass =
+    "border shadow-sm relative overflow-hidden flex cursor-default select-none transition-colors duration-200";
+
+  return (
+    <div
+      className={`${containerBg} ${containerClass}`}
+      style={{ width: size.w, height: size.h }}
+    >
+      <div
+        className={`relative z-10 w-full h-full flex p-3 ${
+          isLeaderboard
+            ? "flex-row items-center justify-between gap-4"
+            : "flex-col gap-2"
+        }`}
+      >
+        {/* Image */}
+        <div
+          className={`
+            flex items-center justify-center shrink-0 relative overflow-hidden
+            ${
+              isLeaderboard
+                ? isMicro
+                  ? "w-12 ml-auto order-2"
+                  : "w-1/4 h-full order-last"
+                : isSkyscraper
+                ? "w-full h-1/3 mt-8"
+                : "w-full h-1/2 mt-4"
+            }
+          `}
+        >
+          {image ? (
+            <img
+              src={image}
+              alt="Creative"
+              className="max-h-full max-w-full object-contain transition-transform duration-100"
+              style={{ transform: `scale(${imageScale})` }}
+            />
+          ) : (
+            <div
+              className={`w-full h-full border border-dashed rounded flex items-center justify-center ${placeholderColor}`}
+            >
+              <ImageIcon size={isMicro ? 12 : 24} />
+            </div>
+          )}
+        </div>
+
+        {/* Text */}
+        <div
+          className={`
+            flex flex-col justify-center flex-grow
+            ${
+              isLeaderboard
+                ? "text-left items-start pl-2"
+                : "text-center items-center"
+            }
+          `}
+        >
+          <h3
+            className={`font-bold leading-tight font-sans ${textColor}`}
+            style={{
+              fontSize: isMicro
+                ? "11px"
+                : isLeaderboard
+                ? "18px"
+                : isSkyscraper
+                ? "20px"
+                : "18px",
+            }}
+          >
+            {headline}
+          </h3>
+          {!isMicro && (
+            <p
+              className={`mt-1 leading-snug font-sans ${subTextColor}`}
+              style={{ fontSize: isSkyscraper ? "14px" : "12px" }}
+            >
+              {subhead}
+            </p>
+          )}
+        </div>
+
+        {/* CTA */}
+        <div
+          className={`
+            flex items-center shrink-0
+            ${
+              isLeaderboard
+                ? "w-auto"
+                : "w-full mt-auto pt-1 justify-center"
+            }
+          `}
+        >
+          <button
+            className="font-medium shadow-sm rounded-md transition-all whitespace-nowrap text-white font-sans"
+            style={{
+              backgroundColor: primaryColor,
+              padding: isMicro ? "2px 8px" : "6px 16px",
+              fontSize: isMicro ? "10px" : "12px",
+            }}
+          >
+            {cta}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Character Counter ---
+
+const CharCounter: React.FC<{ current: number; max: number }> = ({
+  current,
+  max,
+}) => {
+  const isOver = current > max;
+  return (
+    <span
+      className={`text-[10px] font-mono ml-auto ${
+        isOver ? "text-red-500 font-bold" : "text-slate-400"
+      }`}
+    >
+      {current}/{max}
+    </span>
+  );
+};
+
+// --- Main App ---
+
+const App: React.FC = () => {
+  const [image, setImage] = useState<string | null>(null);
+
+  const [headline, setHeadline] = useState("Pure Clarity");
+  const [subhead, setSubhead] = useState("Premium 200ml Packs");
+  const [cta, setCta] = useState("Order Now");
+
+  const [primaryColor, setPrimaryColor] = useState("#EF4444");
+  const [darkMode, setDarkMode] = useState(false);
+  const [imageScale, setImageScale] = useState(1);
+
+  const handleImageUpload = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setter: React.Dispatch<React.SetStateAction<string | null>>
+  ) => {
+    if (e.target.files && e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        if (ev.target?.result) setter(ev.target.result as string);
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 text-slate-800 font-sans pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-50 shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="bg-blue-600 text-white p-2 rounded-lg shadow-sm">
+            <Monitor size={20} />
+          </div>
+          <div>
+            <h1 className="text-lg font-bold tracking-tight text-slate-900">
+              Google Ads <span className="text-blue-600">Visualizer by Maitulya</span>
+            </h1>
+            <p className="text-xs text-slate-500">
+              Internal creative validation tool
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Sidebar */}
+        <div className="lg:col-span-3 space-y-4 h-fit lg:sticky lg:top-24">
+          {/* Assets & Validation */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Upload size={14} /> Assets & Validation
+            </h2>
+
+            {/* Image upload */}
+            <div className="mb-4">
+              <label className="block text-xs font-semibold text-slate-600 mb-2">
+                Marketing Image
+              </label>
+              <div className="relative">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => handleImageUpload(e, setImage)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                />
+                <div
+                  className={`border rounded-md p-3 text-center transition-colors ${
+                    image
+                      ? "border-green-400 bg-green-50"
+                      : "border-slate-200 hover:bg-slate-50"
+                  }`}
+                >
+                  {image ? (
+                    <span className="text-green-700 text-xs font-medium">
+                      Image uploaded ✓
+                    </span>
+                  ) : (
+                    <span className="text-slate-400 text-xs">
+                      Upload final banner image
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Scale slider */}
+            <div className="mb-4">
+              <div className="flex justify-between mb-1">
+                <label className="text-xs font-semibold text-slate-600 flex items-center gap-1">
+                  <ZoomIn size={12} /> Image Scale
+                </label>
+                <span className="text-[10px] text-slate-400">
+                  {Math.round(imageScale * 100)}%
+                </span>
+              </div>
+              <input
+                type="range"
+                min="0.5"
+                max="1.5"
+                step="0.05"
+                value={imageScale}
+                onChange={(e) => setImageScale(parseFloat(e.target.value))}
+                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              />
+            </div>
+
+            {/* Halo checker */}
+            <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
+              <div className="flex items-center gap-2">
+                {darkMode ? (
+                  <Moon size={14} className="text-blue-600" />
+                ) : (
+                  <Sun size={14} className="text-slate-400" />
+                )}
+                <span className="text-xs font-semibold text-slate-600">
+                  Halo checker
+                </span>
+              </div>
+              <button
+                onClick={() => setDarkMode((prev) => !prev)}
+                className={`w-8 h-4 rounded-full transition-colors relative ${
+                  darkMode ? "bg-blue-600" : "bg-slate-300"
+                }`}
+              >
+                <div
+                  className={`w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform ${
+                    darkMode ? "translate-x-4" : ""
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Copy & Compliance */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-slate-200">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Type size={14} /> Copy Compliance
+            </h2>
+            <div className="space-y-4">
+              {/* Headline */}
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    Headline
+                  </label>
+                  <CharCounter current={headline.length} max={30} />
+                </div>
+                <input
+                  type="text"
+                  value={headline}
+                  onChange={(e) => setHeadline(e.target.value)}
+                  className={`w-full px-3 py-2 bg-white border rounded text-sm outline-none focus:ring-1 ${
+                    headline.length > 30
+                      ? "border-red-300 focus:ring-red-200 bg-red-50"
+                      : "border-slate-200 focus:ring-blue-500"
+                  }`}
+                />
+              </div>
+
+              {/* Subhead */}
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    Subhead
+                  </label>
+                  <CharCounter current={subhead.length} max={90} />
+                </div>
+                <input
+                  type="text"
+                  value={subhead}
+                  onChange={(e) => setSubhead(e.target.value)}
+                  className={`w-full px-3 py-2 bg-white border rounded text-sm outline-none focus:ring-1 ${
+                    subhead.length > 90
+                      ? "border-red-300 focus:ring-red-200 bg-red-50"
+                      : "border-slate-200 focus:ring-blue-500"
+                  }`}
+                />
+              </div>
+
+              {/* CTA */}
+              <div>
+                <div className="flex justify-between mb-1">
+                  <label className="text-[10px] font-bold text-slate-500 uppercase">
+                    Button label
+                  </label>
+                  <CharCounter current={cta.length} max={15} />
+                </div>
+                <input
+                  type="text"
+                  value={cta}
+                  onChange={(e) => setCta(e.target.value)}
+                  className={`w-full px-3 py-2 bg-white border rounded text-sm outline-none focus:ring-1 ${
+                    cta.length > 15
+                      ? "border-red-300 focus:ring-red-200 bg-red-50"
+                      : "border-slate-200 focus:ring-blue-500"
+                  }`}
+                />
+              </div>
+
+              {/* Button color */}
+              <div className="pt-2 mt-2 border-t border-slate-100">
+                <label className="block text-[10px] font-bold text-slate-400 mb-2 uppercase">
+                  Button color
+                </label>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    "#EF4444",
+                    "#EA4335",
+                    "#FBBC04",
+                    "#34A853",
+                    "#4285F4",
+                    "#111827",
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => setPrimaryColor(color)}
+                      className={`w-6 h-6 rounded-full border ${
+                        primaryColor === color
+                          ? "ring-2 ring-offset-1 ring-slate-300 border-transparent"
+                          : "border-slate-200"
+                      }`}
+                      style={{ backgroundColor: color }}
+                    />
+                  ))}
+                  <input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-6 h-6 rounded-full overflow-hidden cursor-pointer border-0 p-0"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Preview grid */}
+        <div className="lg:col-span-9 space-y-8">
+          {/* High impact */}
+          <section>
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <Star className="text-amber-500" size={16} /> Billboard (High
+              impact)
+            </h3>
+            <div className="grid gap-6">
+              <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex justify-center overflow-hidden">
+                <AdCanvas
+                  size={{ w: 970, h: 250 }}
+                  image={image}
+                  headline={headline}
+                  subhead={subhead}
+                  cta={cta}
+                  primaryColor={primaryColor}
+                  darkMode={darkMode}
+                  imageScale={imageScale}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* Rectangles */}
+          <section>
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <Box className="text-blue-500" size={16} /> Rectangles (High
+              volume)
+            </h3>
+            <div className="flex flex-wrap gap-6">
+              {[
+                { w: 300, h: 250, label: "Medium rectangle" },
+                { w: 336, h: 280, label: "Large rectangle" },
+                { w: 250, h: 250, label: "Square" },
+              ].map((spec, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-100 p-6 rounded-lg border border-slate-200"
+                >
+                  <div className="text-[10px] text-slate-400 mb-2 font-mono uppercase">
+                    {spec.label} ({spec.w}x{spec.h})
+                  </div>
+                  <AdCanvas
+                    size={{ w: spec.w, h: spec.h }}
+                    image={image}
+                    headline={headline}
+                    subhead={subhead}
+                    cta={cta}
+                    primaryColor={primaryColor}
+                    darkMode={darkMode}
+                    imageScale={imageScale}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Leaderboards */}
+          <section>
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <Maximize className="text-green-500" size={16} /> Leaderboards
+            </h3>
+            <div className="space-y-6">
+              {/* 728x90 */}
+              <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex justify-center overflow-hidden">
+                <div className="w-full flex flex-col items-center">
+                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[728px] text-left uppercase">
+                    Leaderboard (728x90)
+                  </div>
+                  <AdCanvas
+                    size={{ w: 728, h: 90 }}
+                    image={image}
+                    headline={headline}
+                    subhead={subhead}
+                    cta={cta}
+                    primaryColor={primaryColor}
+                    darkMode={darkMode}
+                    imageScale={imageScale}
+                  />
+                </div>
+              </div>
+
+              {/* mobile */}
+              <div className="grid md:grid-cols-2 gap-6">
+                <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex flex-col items-center">
+                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[320px] text-left uppercase">
+                    Mobile leaderboard (320x50)
+                  </div>
+                  <AdCanvas
+                    size={{ w: 320, h: 50 }}
+                    image={image}
+                    headline={headline}
+                    subhead={subhead}
+                    cta={cta}
+                    primaryColor={primaryColor}
+                    darkMode={darkMode}
+                    imageScale={imageScale}
+                  />
+                </div>
+                <div className="bg-slate-100 p-6 rounded-lg border border-slate-200 flex flex-col items-center">
+                  <div className="text-[10px] text-slate-400 mb-2 font-mono w-full max-w-[320px] text-left uppercase">
+                    Large mobile (320x100)
+                  </div>
+                  <AdCanvas
+                    size={{ w: 320, h: 100 }}
+                    image={image}
+                    headline={headline}
+                    subhead={subhead}
+                    cta={cta}
+                    primaryColor={primaryColor}
+                    darkMode={darkMode}
+                    imageScale={imageScale}
+                  />
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Skyscrapers */}
+          <section>
+            <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
+              <Layout className="text-purple-500" size={16} /> Skyscrapers
+            </h3>
+            <div className="flex flex-wrap gap-6 items-start">
+              {[
+                { w: 300, h: 600, label: "Half page" },
+                { w: 160, h: 600, label: "Wide skyscraper" },
+                { w: 240, h: 400, label: "Vertical rectangle" },
+              ].map((spec, i) => (
+                <div
+                  key={i}
+                  className="bg-slate-100 p-6 rounded-lg border border-slate-200"
+                >
+                  <div className="text-[10px] text-slate-400 mb-2 font-mono uppercase">
+                    {spec.label} ({spec.w}x{spec.h})
+                  </div>
+                  <AdCanvas
+                    size={{ w: spec.w, h: spec.h }}
+                    image={image}
+                    headline={headline}
+                    subhead={subhead}
+                    cta={cta}
+                    primaryColor={primaryColor}
+                    darkMode={darkMode}
+                    imageScale={imageScale}
+                  />
+                </div>
+              ))}
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default App;
