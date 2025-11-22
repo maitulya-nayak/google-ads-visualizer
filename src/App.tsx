@@ -427,7 +427,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900">
-              Google Ads <span className="text-blue-600">Visualizer</span>
+              Google Ads <span className="text-blue-600">Visualizer by Maitulya</span>
             </h1>
             <p className="text-xs text-slate-500">
               Internal creative QA for Display campaigns
