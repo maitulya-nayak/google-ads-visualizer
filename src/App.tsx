@@ -237,19 +237,21 @@ const CharCounter: React.FC<{ current: number; max: number }> = ({
 
 // ---------- Ad Preview Card (with Download) ----------
 
+interface AdPreviewSettings {
+  image: string | null;
+  headline: string;
+  subhead: string;
+  cta: string;
+  primaryColor: string;
+  darkMode: boolean;
+  imageScale: number;
+  imageOffset: { x: number; y: number };
+}
+
 interface AdPreviewCardProps {
   label: string;
   size: AdSize;
-  settings: {
-    image: string | null;
-    headline: string;
-    subhead: string;
-    cta: string;
-    primaryColor: string;
-    darkMode: boolean;
-    imageScale: number;
-    imageOffset: { x: number; y: number };
-  };
+  settings: AdPreviewSettings;
   highlightDrag?: boolean;
   onImageOffsetChange?: (offset: { x: number; y: number }) => void;
 }
@@ -320,7 +322,7 @@ const App: React.FC = () => {
   const [images, setImages] = useState<string[]>([]);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Copy (empty by default)
+  // Copy - all empty by default
   const [headline, setHeadline] = useState("");
   const [subhead, setSubhead] = useState("");
   const [cta, setCta] = useState("");
@@ -335,7 +337,7 @@ const App: React.FC = () => {
   const [presets, setPresets] = useState<Preset[]>(() => {
     try {
       const raw = localStorage.getItem("ga-visualizer-presets");
-      if (raw) return JSON.parse(raw) as Preset[];
+      if (raw) return JSON.parse(raw);
     } catch (e) {
       console.warn("Could not load presets", e);
     }
@@ -355,9 +357,7 @@ const App: React.FC = () => {
 
   const activeImage = images[activeImageIndex] ?? null;
 
-  const handleImageUpload = (
-    e: React.ChangeEvent<HTMLInputElement>
-  ): void => {
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>): void => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       const reader = new FileReader();
@@ -406,7 +406,7 @@ const App: React.FC = () => {
     setPresets((prev) => prev.filter((p) => p.id !== id));
   };
 
-  const sharedSettings = {
+  const sharedSettings: AdPreviewSettings = {
     image: activeImage,
     headline,
     subhead,
@@ -427,7 +427,7 @@ const App: React.FC = () => {
           </div>
           <div>
             <h1 className="text-lg font-bold tracking-tight text-slate-900">
-              Google Ads <span className="text-blue-600">Visualizer By Maitulya</span>
+              Google Ads <span className="text-blue-600">Visualizer</span>
             </h1>
             <p className="text-xs text-slate-500">
               Internal creative QA for Display campaigns
@@ -440,7 +440,7 @@ const App: React.FC = () => {
             <Eye size={12} /> Preview only
           </span>
           <span className="flex items-center gap-1 text-slate-400">
-            <Star size={12} /> v1.1
+            <Star size={12} /> v1.2
           </span>
         </div>
       </div>
@@ -536,39 +536,35 @@ const App: React.FC = () => {
                 max="1.5"
                 step="0.05"
                 value={imageScale}
-                onChange={(e) =>
-                  setImageScale(parseFloat(e.target.value))
-                }
+                onChange={(e) => setImageScale(parseFloat(e.target.value))}
                 className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600"
               />
             </div>
 
             {/* Halo checker */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
-                <div className="flex items-center gap-2">
-                  {darkMode ? (
-                    <Moon size={14} className="text-blue-600" />
-                  ) : (
-                    <Sun size={14} className="text-slate-400" />
-                  )}
-                  <span className="text-xs font-semibold text-slate-600">
-                    Halo checker
-                  </span>
-                </div>
-                <button
-                  onClick={() => setDarkMode((prev) => !prev)}
-                  className={`w-8 h-4 rounded-full transition-colors relative ${
-                    darkMode ? "bg-blue-600" : "bg-slate-300"
-                  }`}
-                >
-                  <div
-                    className={`w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform ${
-                      darkMode ? "translate-x-4" : ""
-                    }`}
-                  />
-                </button>
+            <div className="flex items-center justify-between bg-slate-50 p-2 rounded border border-slate-100">
+              <div className="flex items-center gap-2">
+                {darkMode ? (
+                  <Moon size={14} className="text-blue-600" />
+                ) : (
+                  <Sun size={14} className="text-slate-400" />
+                )}
+                <span className="text-xs font-semibold text-slate-600">
+                  Halo checker
+                </span>
               </div>
+              <button
+                onClick={() => setDarkMode((prev) => !prev)}
+                className={`w-8 h-4 rounded-full transition-colors relative ${
+                  darkMode ? "bg-blue-600" : "bg-slate-300"
+                }`}
+              >
+                <div
+                  className={`w-3 h-3 bg-white rounded-full absolute top-0.5 left-0.5 transition-transform ${
+                    darkMode ? "translate-x-4" : ""
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
@@ -689,7 +685,7 @@ const App: React.FC = () => {
             </div>
             {presets.length === 0 ? (
               <p className="text-[11px] text-slate-400">
-                Save common layouts here (per brand / campaign).
+                Save common layouts here per brand or campaign.
               </p>
             ) : (
               <div className="space-y-1 max-h-40 overflow-y-auto">
@@ -722,8 +718,8 @@ const App: React.FC = () => {
           {/* High impact */}
           <section>
             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-              <Star className="text-amber-500" size={16} /> Billboard (High
-              impact)
+              <Star className="text-amber-500" size={16} /> Billboard high
+              impact
             </h3>
             <AdPreviewCard
               label="Billboard"
@@ -737,8 +733,7 @@ const App: React.FC = () => {
           {/* Rectangles */}
           <section>
             <h3 className="text-xs font-bold text-slate-500 uppercase mb-4 flex items-center gap-2 border-b border-slate-200 pb-2">
-              <Box className="text-blue-500" size={16} /> Rectangles (High
-              volume)
+              <Box className="text-blue-500" size={16} /> Rectangles high volume
             </h3>
             <div className="flex flex-wrap gap-6">
               {[
